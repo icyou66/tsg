@@ -1,11 +1,9 @@
 import json
 import time
-import winreg
 import tkinter
 import requests
 from tkinter import *
 from tkinter import ttk
-from Gui import Pygui
 from tkinter import messagebox
 from threading import Thread
 from bs4 import BeautifulSoup
@@ -37,11 +35,18 @@ class Tkinter:
     ]
 
     def __init__(self):
+        self.seat = None
+        self.select = None
+        self.log_place = None
+        self.log_data = None
+        self.cookie = None
+        self.openid = None
+        self.sid = None
         self.root = Tk()
         self.root.title("图书馆抢座系统")
         window_height = self.root.winfo_screenheight()
         window_width = self.root.winfo_screenwidth()
-        width, height = list([500, 600])
+        width, height = list([350, 500])
         self.root.geometry(
             "%dx%d+%d+%d"
             % (width, height, (window_width - width) / 2, (window_height - height) / 2)
@@ -125,9 +130,8 @@ class Tkinter:
             self.seat.set(value=info.get("seat"))
 
         if not self.cookie or not self.openid or not self.sid:
-            self.run_thread(self.waitcookie)
-            # messagebox.showwarning("提示", "cookie等必要参数未读取成功！请按照流程来！")
-            # self.root.destroy()
+            messagebox.showwarning("提示", "cookie等必要参数未读取成功！请按照流程来！")
+            self.root.destroy()
         else:
             self.pprint("信息配置读取成功！正在效验cookie有效性...", "green")
             self.headers['Cookie'] = self.cookie
@@ -138,9 +142,8 @@ class Tkinter:
                 if not self.seat_check(result):
                     self.run_thread(self.run)
             else:
-                self.run_thread(self.waitcookie)
-                # messagebox.showwarning("提示", "cookie已过期，请重新按照流程操作一遍！")
-                # self.root.destroy()
+                messagebox.showwarning("提示", "cookie已过期，请重新按照流程操作一遍！")
+                self.root.destroy()
 
     def seat_check(self, result):
         if "已签到" in result:
@@ -157,40 +160,6 @@ class Tkinter:
         else:
             return False
         return True
-
-    def waitcookie(self):
-        try:
-            proxy_address = "127.0.0.1:8080"
-            internet_settings = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                                               r'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 0,
-                                               winreg.KEY_ALL_ACCESS)
-            winreg.SetValueEx(internet_settings, "ProxyServer", 0, winreg.REG_SZ, proxy_address)
-            winreg.SetValueEx(internet_settings, "ProxyEnable", 0, winreg.REG_DWORD, 1)
-            winreg.CloseKey(internet_settings)
-            self.pprint("检测到cookie无效！即将运行cookie获取模式...")
-            time.sleep(1)
-            gui = Pygui()
-            if gui.preg_match():
-                self.pprint(f"已捕获刷新按钮，坐标：({gui.x}, {gui.y})。运行期间请勿关闭或遮挡刷新按钮。否则将会失效！")
-            else:
-                self.end("未捕获到刷新按钮，请重新按照流程操作！")
-            self.pprint("已打开本地代理，等待5：20时将运行下一步...\n")
-            self.time_sleep(datetime.time(10, 46, 25))
-            if gui.preg_match():
-                self.pprint(f"已捕获刷新按钮，坐标：({gui.x}, {gui.y})。")
-                gui.click()
-                internet_settings = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                                                   r'Software\Microsoft\Windows\CurrentVersion\Internet Settings', 0,
-                                                   winreg.KEY_ALL_ACCESS)
-                winreg.SetValueEx(internet_settings, "ProxyEnable", 0, winreg.REG_DWORD, 0)
-                winreg.CloseKey(internet_settings)
-                self.pprint(f"已点击刷新按钮。10秒后重新检测cookie....")
-                time.sleep(10)
-                self.read_info()
-            else:
-                self.pprint("刷新按钮未捕获成功！cookie运行失败！")
-        except Exception as e:
-            self.end(str(e))
 
     @staticmethod
     def run_thread(func):
@@ -327,15 +296,6 @@ class Tkinter:
                 return True
             else:
                 time.sleep(0.2)
-
-    def time_sleep(self, sleep_time):
-        while True:
-            self.pprint(f"当前时间：{self.get_time()}", delete=True)
-            current_time = datetime.datetime.now().time()
-            if current_time > sleep_time:
-                if current_time.hour < sleep_time.hour + 2:
-                    return True
-            time.sleep(1)
 
     def save_info(self):
         seat = self.seat.get().strip()
